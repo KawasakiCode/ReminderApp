@@ -22,6 +22,13 @@ class ReminderApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      theme: ThemeData(  
+        actionIconTheme: ActionIconThemeData(  
+          backButtonIconBuilder: (BuildContext context) {
+            return const Icon(Icons.arrow_back_ios_new);
+          },
+        )
+      ),
       title: 'Reminder',
       home: HomePage(),
     );
