@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:reminder_app/search_page.dart';
 import 'package:reminder_app/settings/search_page_settings.dart';
 
 class HomePage extends StatefulWidget {
@@ -19,7 +20,7 @@ class _HomePageState extends State<HomePage> {
             onPressed: () {
               Navigator.push(  
                 context,
-                MaterialPageRoute(builder:(context) => SearchSettingsPage(),)
+                MaterialPageRoute(builder:(context) => SearchPage(),)
               );
             },
             icon: Icon(Icons.back_hand)

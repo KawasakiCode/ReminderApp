@@ -11,7 +11,5 @@ class SettingsProvider extends ChangeNotifier {
   final SharedPreferences _prefs;
 
   //The provider when initialized loads data from disk or if disk is empty loads the defaults
-  SettingsProvider(this._prefs){
-    
-  }
+  SettingsProvider(this._prefs);
 }
