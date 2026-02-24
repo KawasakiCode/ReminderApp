@@ -20,28 +20,33 @@ class _SearchPageState extends State<SearchPage> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             Expanded(
-              child: SearchBar(
-                elevation: WidgetStateProperty.all(0),
-                hintText: "Search",
-                hintStyle: WidgetStateProperty.all(TextStyle(fontSize: 21)),
-                backgroundColor: WidgetStateProperty.all(Colors.transparent),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 10),
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.more_vert, color: Colors.black),
-                    onPressed: () {
-                      setState(() {
-                        _isMenuOpen =
-                            !_isMenuOpen;
-                      });
-                    },
+                  Padding(
+                    padding: const EdgeInsets.only(right: 50),
+                    child: SearchBar(
+                      elevation: WidgetStateProperty.all(0),
+                      hintText: "Search",
+                      hintStyle: WidgetStateProperty.all(
+                        TextStyle(fontSize: 21),
+                      ),
+                      backgroundColor: WidgetStateProperty.all(
+                        Colors.transparent,
+                      ),
+                    ),
                   ),
-
+                  Positioned(
+                    left: 300,
+                    child: IconButton(
+                      icon: const Icon(Icons.more_vert, color: Colors.black),
+                      onPressed: () {
+                        setState(() {
+                          _isMenuOpen = !_isMenuOpen;
+                        });
+                      },
+                    ),
+                  ),
                   if (_isMenuOpen)
                     Positioned(
                       top: 0,
@@ -50,30 +55,19 @@ class _SearchPageState extends State<SearchPage> {
                         elevation: 0,
                         color: Colors.grey[700],
                         borderRadius: BorderRadius.circular(30),
-                        clipBehavior: Clip
-                            .antiAlias,
-                        child: SizedBox(
-                          width: 160.0,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    _isMenuOpen = false;
-                                  });
-                                  
-                                },
-                                child: const Padding(
-                                  padding: EdgeInsets.all(16.0),
-                                  child: Text(
-                                    'Search Settings',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                            ],
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              _isMenuOpen = false;
+                            });
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text(
+                              'Search Settings',
+                              style: TextStyle(color: Colors.white),
+                            ),
                           ),
                         ),
                       ),
@@ -81,6 +75,61 @@ class _SearchPageState extends State<SearchPage> {
                 ],
               ),
             ),
+
+            // Padding(
+            //   padding: const EdgeInsets.only(right: 10),
+            //   child: Stack(
+            //     clipBehavior: Clip.none,
+            //     children: [
+            //       IconButton(
+            //         icon: const Icon(Icons.more_vert, color: Colors.black),
+            //         onPressed: () {
+            //           setState(() {
+            //             _isMenuOpen =
+            //                 !_isMenuOpen;
+            //           });
+            //         },
+            //       ),
+
+            //       if (_isMenuOpen)
+            //         Positioned(
+            //           top: 0,
+            //           right: 10,
+            //           child: Material(
+            //             elevation: 0,
+            //             color: Colors.grey[700],
+            //             borderRadius: BorderRadius.circular(30),
+            //             clipBehavior: Clip
+            //                 .antiAlias,
+            //             child: SizedBox(
+            //               width: 160.0,
+            //               child: Column(
+            //                 mainAxisSize: MainAxisSize.min,
+            //                 crossAxisAlignment: CrossAxisAlignment.stretch,
+            //                 children: [
+            //                   InkWell(
+            //                     onTap: () {
+            //                       setState(() {
+            //                         _isMenuOpen = false;
+            //                       });
+
+            //                     },
+            //                     child: const Padding(
+            //                       padding: EdgeInsets.all(16.0),
+            //                       child: Text(
+            //                         'Search Settings',
+            //                         style: TextStyle(color: Colors.white),
+            //                       ),
+            //                     ),
+            //                   ),
+            //                 ],
+            //               ),
+            //             ),
+            //           ),
+            //         ),
+            //     ],
+            //   ),
+            // ),
           ],
         ),
       ),
