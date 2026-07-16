@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One checkable notification row. Only the check icon is the "mark done"
+     target (a fixed neutral tint keeps it visible on light AND dark shades,
+     since custom notification views cannot rely on shade theme attrs). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingTop="3dp"
+    android:paddingBottom="3dp">
+
+    <ImageView
+        android:id="@+id/notif_item_check"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:padding="4dp"
+        android:src="@drawable/ic_check_off"
+        android:contentDescription="@string/row_check_description" />
+
+    <View
+        android:id="@+id/notif_item_color"
+        android:layout_width="3dp"
+        android:layout_height="24dp"
+        android:layout_marginStart="6dp"
+        android:layout_marginEnd="10dp"
+        android:background="@color/accent" />
+
+    <TextView
+        android:id="@+id/notif_item_title"
+        style="@style/TextAppearance.Compat.Notification.Title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textSize="13sp"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/notif_item_time"
+        style="@style/TextAppearance.Compat.Notification.Info"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:textSize="11sp" />
+</LinearLayout>

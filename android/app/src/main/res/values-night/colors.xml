@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark-mode widget card. -->
+    <color name="widget_bg">#E61C1E24</color>
+    <color name="widget_text">#ECECEE</color>
+    <color name="widget_text_muted">#9B9BA1</color>
+</resources>

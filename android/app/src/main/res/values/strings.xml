@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget -->
+    <string name="widget_label">Today\'s todos</string>
+    <string name="widget_description">Shows today\'s todos at a glance. Tap a row to check it off.</string>
+    <string name="widget_empty">Nothing planned today 🎉</string>
+    <string name="widget_count">%1$d left</string>
+    <string name="widget_loading">…</string>
+
+    <!-- Shared -->
+    <string name="all_day">All day</string>
+    <string name="row_check_description">Toggle done</string>
+
+    <!-- Persistent notification -->
+    <string name="notif_channel_name">Today\'s todo list</string>
+    <string name="notif_channel_description">Permanent silent notification listing today\'s unfinished todos</string>
+    <string name="notif_today_title">Today\'s tasks</string>
+    <string name="notif_all_done">All done 🎉</string>
+    <string name="notif_all_done_long">All done for today 🎉</string>
+    <string name="notif_one_left">1 task remaining</string>
+    <string name="notif_n_left">%1$d tasks remaining</string>
+    <string name="notif_more">+%1$d more</string>
+</resources>

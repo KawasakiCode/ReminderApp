@@ -1,36 +1,37 @@
 import 'package:flutter/material.dart';
-import 'package:reminder_app/home_page.dart';
-import 'package:reminder_app/providers/settings_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:provider/provider.dart';
+import 'package:workmanager/workmanager.dart';
 
+import 'app.dart';
+import 'background/background_entrypoints.dart';
+import 'presentation/providers/core_providers.dart';
+import 'services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final prefs = await SharedPreferences.getInstance();  
+  // Settings must be readable synchronously by the first frame.
+  final prefs = await SharedPreferences.getInstance();
+
+  // Notifications: timezone db + channels + tap/action callbacks. The
+  // background handler runs "Mark as done" while the app is dead.
+  await NotificationService.instance.initForUi(
+    onBackgroundAction: notificationActionBackground,
+  );
+
+  // Widget/notification check-taps land in this background entry point.
+  await HomeWidget.registerInteractivityCallback(homeWidgetBackgroundCallback);
+
+  // Midnight rollover task dispatcher (the task itself is (re)armed in
+  // TodoActions.appStartSync).
+  await Workmanager().initialize(workmanagerDispatcher);
 
   runApp(
-    ChangeNotifierProvider(create: (_) => SettingsProvider(prefs),
-    child: const ReminderApp()),
+    ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: const ReminderApp(),
+    ),
   );
-}
-
-class ReminderApp extends StatelessWidget {
-  const ReminderApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: ThemeData(  
-        actionIconTheme: ActionIconThemeData(  
-          backButtonIconBuilder: (BuildContext context) {
-            return const Icon(Icons.arrow_back_ios_new);
-          },
-        )
-      ),
-      title: 'Reminder',
-      home: HomePage(),
-    );
-  }
 }

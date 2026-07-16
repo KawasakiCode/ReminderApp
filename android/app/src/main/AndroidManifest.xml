@@ -1,45 +1,156 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ================================================================
+         Permissions — each one exists for a specific feature. There is
+         deliberately NO android.permission.INTERNET: the app is fully
+         offline.
+         ================================================================ -->
+
+    <!-- Android 13+ runtime permission to post any notification at all
+         (reminders + the persistent today-list notification). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Exact-time reminders. Android 12/12L uses the user-grantable
+         SCHEDULE_EXACT_ALARM; from Android 13 a calendar/reminder app may
+         hold USE_EXACT_ALARM instead, which is granted automatically and
+         cannot be revoked. Google Play policy: USE_EXACT_ALARM is reserved
+         for apps whose *core function* is calendar/alarm — which is exactly
+         what this app is. -->
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+    <!-- Reminders behave like alarms: full-screen intent that wakes the
+         device on the lock screen (Samsung Calendar behavior). On Android
+         14+ the user can revoke this via "Full screen notifications"; the
+         app degrades to a heads-up notification. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <!-- Scheduled alarms are wiped on reboot. flutter_local_notifications'
+         ScheduledNotificationBootReceiver re-registers them, and our own
+         BootReceiver restarts the persistent-notification service and
+         refreshes the widget snapshot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- The persistent checkable today-list notification is backed by a
+         foreground service (user-toggled in Settings). "specialUse" is the
+         honest FGS type for a persistent glanceable checklist; the subtype
+         property below declares it for Play review. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
+    <!-- Wake the device long enough to show the reminder / run the midnight
+         refresh (used by flutter_local_notifications and WorkManager). -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Reminder notifications vibrate like an alarm. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Lets the app show the system dialog asking to be exempted from
+         battery optimization — on Samsung and similarly aggressive OEM
+         builds, Doze can otherwise delay "exact" alarms. Requested only from
+         the Settings screen, with an explanation. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <application
-        android:label="reminder_app"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:label="Reminder"
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
+
+        <!-- showWhenLocked/turnScreenOn: when a reminder's full-screen intent
+             fires while the device is locked, the activity is shown on the
+             lock screen with the screen turned on — the Samsung Calendar /
+             alarm-clock experience. This is the pattern documented by
+             flutter_local_notifications for full-screen notifications. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
             <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+
+        <!-- Foreground service that owns the persistent, checkable
+             "today's todos" notification. Not exported: only this app (and
+             the system, via the boot receiver) starts it. -->
+        <service
+            android:name=".TodoForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <!-- Android 14+ / Play review: why specialUse is appropriate. -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-enabled persistent notification showing today's todo checklist with check-off actions; must stay alive to reflect live data and midnight rollover." />
+        </service>
+
+        <!-- RemoteViewsService feeding the widget's scrollable todo list.
+             BIND_REMOTEVIEWS ensures only the system widget host can bind. -->
+        <service
+            android:name=".TodoWidgetService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
+        <!-- Receives check-taps from BOTH native surfaces (widget rows via
+             the fill-in template, notification rows via explicit
+             PendingIntents) and forwards them into the Dart background
+             callback. Not exported: all senders are PendingIntents owned by
+             this app. -->
+        <receiver
+            android:name=".TodoActionReceiver"
+            android:exported="false" />
+
+        <!-- Restores state after reboot / app update: restarts the
+             foreground service (if the setting is on) and triggers a Dart
+             snapshot refresh. Exported=false is fine — protected system
+             broadcasts are still delivered. -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Home-screen widget: resizable "today's todos" list. -->
+        <receiver
+            android:name=".TodoWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/todo_widget_info" />
+        </receiver>
+
+        <!-- Flutter tooling marker — do not remove. -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <!-- Used by the Flutter engine's text-processing integration. -->
     <queries>
         <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
         </intent>
     </queries>
 </manifest>

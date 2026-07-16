@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Must visually match AppTheme.seed in lib/presentation/theme.dart. -->
+    <color name="accent">#2E6FF2</color>
+
+    <!-- Widget card (light); night variant in values-night/colors.xml. -->
+    <color name="widget_bg">#F2FFFFFF</color>
+    <color name="widget_text">#1B1C20</color>
+    <color name="widget_text_muted">#8A8A8E</color>
+</resources>

@@ -7,12 +7,15 @@ plugins {
 
 android {
     namespace = "com.example.reminder_app"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_local_notifications 21+ requires compileSdk 36.
+    compileSdk = maxOf(flutter.compileSdkVersion, 36)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications uses java.time — desugaring is required.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -20,11 +23,10 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.reminder_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // minSdk 26: java.time (desugar-free on device), NotificationChannel,
+        // startForegroundService — everything the native side relies on.
+        minSdk = maxOf(flutter.minSdkVersion, 26)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -41,4 +43,12 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Required by flutter_local_notifications (java.time backport).
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    // NotificationCompat / ServiceCompat / ContextCompat used by the
+    // foreground service and receivers.
+    implementation("androidx.core:core-ktx:1.16.0")
 }
