@@ -333,6 +333,9 @@ class _TodoEditorSheetState extends ConsumerState<_TodoEditorSheet> {
             'minutes late. Enable "Alarms & reminders" in Settings.',
       ReminderScheduleResult.alarmCapReached =>
         'Too many scheduled reminders — this one was saved without an alarm.',
+      ReminderScheduleResult.remindersDisabled when reminderEnabled =>
+        'Saved, but reminders are switched off in Settings — no alarm will '
+            'ring until you turn them back on.',
       _ => null,
     };
     if (notice != null) {

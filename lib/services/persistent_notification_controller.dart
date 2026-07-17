@@ -36,4 +36,16 @@ class PersistentNotificationController {
       return true;
     }
   }
+
+  /// Opens the system battery-optimization list. Needed because Android
+  /// offers no API to hand the exemption back — the user must re-optimize
+  /// the app manually there.
+  Future<void> openBatteryOptimizationSettings() async {
+    try {
+      await _channel
+          .invokeMethod<void>(NativeChannel.openBatteryOptimizationSettings);
+    } on MissingPluginException {
+      // No activity attached (tests) — nothing to open.
+    }
+  }
 }

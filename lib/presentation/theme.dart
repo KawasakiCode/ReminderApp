@@ -32,6 +32,14 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
+      // Material 3's default "zoom" transition reads as no transition at all
+      // on low-end devices — pages appear to just land. The Cupertino builder
+      // is a proper slide-in with parallax (One-UI-like) and stays smooth.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        },
+      ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,

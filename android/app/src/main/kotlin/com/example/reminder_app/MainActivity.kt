@@ -1,7 +1,9 @@
 package com.example.reminder_app
 
 import android.app.NotificationManager
+import android.content.Intent
 import android.os.Build
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -48,6 +50,15 @@ class MainActivity : FlutterActivity() {
                                 true
                             }
                         )
+                    }
+                    // Android has no API to *give back* the battery
+                    // exemption, so the settings toggle deep-links the user
+                    // to the system list instead.
+                    "openBatteryOptimizationSettings" -> {
+                        startActivity(
+                            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        )
+                        result.success(null)
                     }
                     else -> result.notImplemented()
                 }

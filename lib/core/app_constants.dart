@@ -26,6 +26,15 @@ abstract final class SettingsKeys {
   static const firstDayOfWeek = 'settings_first_day_of_week';
   static const persistentNotification = 'settings_persistent_notification';
   static const onboardedNotifications = 'settings_onboarded_notifications';
+
+  // Feature flags behind the permission toggles. Turning a feature off does
+  // NOT revoke the OS permission (that isn't possible programmatically and
+  // is not wanted): the app simply stops using it, so toggling back on needs
+  // no new system prompt. Read by NotificationService on every schedule —
+  // including from background isolates — hence stored in plain prefs.
+  static const remindersEnabled = 'settings_reminders_enabled';
+  static const exactAlarmsEnabled = 'settings_exact_alarms_enabled';
+  static const fullScreenEnabled = 'settings_full_screen_enabled';
 }
 
 /// URIs delivered to the `home_widget` background (interactivity) callback.
@@ -50,6 +59,10 @@ abstract final class NativeChannel {
   /// True on Android < 14 (granted via the manifest permission alone) or when
   /// the Android 14+ appop has not been revoked.
   static const canUseFullScreenIntent = 'canUseFullScreenIntent';
+
+  /// Opens the system "battery optimization" list — the only way to give the
+  /// exemption *back*, since apps cannot re-optimize themselves.
+  static const openBatteryOptimizationSettings = 'openBatteryOptimizationSettings';
 }
 
 /// Notification identity.

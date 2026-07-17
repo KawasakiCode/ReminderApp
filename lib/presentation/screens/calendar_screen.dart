@@ -9,6 +9,7 @@ import '../providers/core_providers.dart';
 import '../providers/todo_actions.dart';
 import '../widgets/day_todo_list.dart';
 import '../widgets/month_calendar.dart';
+import '../widgets/month_jump_dialog.dart';
 import '../widgets/todo_editor_sheet.dart';
 import 'reminder_screen.dart';
 import 'settings_screen.dart';
@@ -99,11 +100,29 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen>
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      DateFormat('MMMM yyyy').format(focusedMonth),
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
+                    // Tapping the title jumps straight to any month/year —
+                    // no swiping through months in between.
+                    child: InkWell(
+                      onTap: () => showMonthJump(context, ref),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              DateFormat('MMMM yyyy').format(focusedMonth),
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_drop_down,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ],
                       ),
                     ),
                   ),

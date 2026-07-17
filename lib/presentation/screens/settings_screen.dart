@@ -95,63 +95,98 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 data: (overview) => Column(
                   children: [
-                    _PermissionRow(
+                    // Each toggle = "app-level feature flag AND OS grant".
+                    // Toggling OFF only flips the flag — the OS permission
+                    // stays granted, so toggling back ON never re-prompts
+                    // (unless the permission was never granted, in which
+                    // case ON triggers the system request).
+                    _FeatureToggle(
                       icon: Icons.notifications_outlined,
-                      title: 'Notifications',
-                      granted: overview.notificationsGranted,
-                      grantedText: 'Allowed',
-                      deniedText: 'Required for any reminder to be visible',
-                      onRequest: () async {
+                      title: 'Reminders',
+                      value: settings.remindersEnabled &&
+                          overview.notificationsGranted,
+                      subtitle: settings.remindersEnabled &&
+                              overview.notificationsGranted
+                          ? 'Alarm notifications for todos with reminders'
+                          : settings.remindersEnabled
+                              ? 'Notifications blocked by Android — switch '
+                                  'on to grant'
+                              : 'Off — reminder alarms won\'t ring',
+                      onChanged: (enabled) async {
                         await ref
-                            .read(permissionServiceProvider)
-                            .requestNotifications();
+                            .read(settingsProvider.notifier)
+                            .setRemindersEnabled(enabled);
                         ref.invalidate(permissionOverviewProvider);
                       },
                     ),
-                    _PermissionRow(
+                    _FeatureToggle(
                       icon: Icons.alarm_on_outlined,
-                      title: 'Exact alarms',
-                      granted: overview.exactAlarmsGranted,
-                      grantedText: 'Reminders fire to the second',
-                      deniedText:
-                          'Without this, reminders may arrive a few minutes '
-                          'late (opens "Alarms & reminders")',
-                      onRequest: () async {
+                      title: 'Exact timing',
+                      value: settings.exactAlarmsEnabled &&
+                          overview.exactAlarmsGranted,
+                      subtitle: settings.exactAlarmsEnabled &&
+                              overview.exactAlarmsGranted
+                          ? 'Reminders fire to the second'
+                          : settings.exactAlarmsEnabled
+                              ? 'Needs "Alarms & reminders" — switch on to '
+                                  'open the system setting'
+                              : 'Off — reminders may arrive a few minutes '
+                                  'late',
+                      onChanged: (enabled) async {
                         await ref
-                            .read(permissionServiceProvider)
-                            .requestExactAlarms();
+                            .read(settingsProvider.notifier)
+                            .setExactAlarmsEnabled(enabled);
                         ref.invalidate(permissionOverviewProvider);
                       },
                     ),
-                    _PermissionRow(
+                    _FeatureToggle(
                       icon: Icons.fullscreen_outlined,
                       title: 'Full-screen reminders',
-                      granted: overview.fullScreenGranted,
-                      grantedText:
-                          'Reminders can wake the screen like an alarm',
-                      deniedText:
-                          'Revoked in system settings — reminders fall back '
-                          'to a normal heads-up notification',
-                      onRequest: () async {
+                      value: settings.fullScreenEnabled &&
+                          overview.fullScreenGranted,
+                      subtitle: settings.fullScreenEnabled &&
+                              overview.fullScreenGranted
+                          ? 'Reminders wake the screen like an alarm'
+                          : settings.fullScreenEnabled
+                              ? 'Revoked by Android — switch on to grant'
+                              : 'Off — a heads-up banner is shown instead',
+                      onChanged: (enabled) async {
                         await ref
-                            .read(permissionServiceProvider)
-                            .requestFullScreenIntent();
+                            .read(settingsProvider.notifier)
+                            .setFullScreenEnabled(enabled);
                         ref.invalidate(permissionOverviewProvider);
                       },
                     ),
-                    _PermissionRow(
+                    _FeatureToggle(
                       icon: Icons.battery_saver_outlined,
-                      title: 'Battery optimization',
-                      granted: overview.batteryUnrestricted,
-                      grantedText: 'App is exempt — alarms are reliable',
-                      deniedText:
-                          'Samsung/aggressive battery savers can delay or '
-                          'drop alarms. Exempt this app for reliable '
-                          'reminders.',
-                      onRequest: () async {
-                        await ref
-                            .read(permissionServiceProvider)
-                            .requestIgnoreBatteryOptimizations();
+                      title: 'Ignore battery optimization',
+                      // Pure OS state — there is no app-side flag to keep:
+                      // the exemption itself IS the feature.
+                      value: overview.batteryUnrestricted,
+                      subtitle: overview.batteryUnrestricted
+                          ? 'App is exempt — alarms are reliable'
+                          : 'Optimized — Samsung may delay alarms in deep '
+                              'sleep. Switch on to exempt this app.',
+                      onChanged: (enabled) async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        if (enabled) {
+                          await ref
+                              .read(permissionServiceProvider)
+                              .requestIgnoreBatteryOptimizations();
+                        } else {
+                          // Android has no API to re-optimize an app; send
+                          // the user to the system list instead.
+                          await ref
+                              .read(persistentNotificationControllerProvider)
+                              .openBatteryOptimizationSettings();
+                          messenger.showSnackBar(const SnackBar(
+                            content: Text(
+                              'Android manages this setting — find '
+                              '"Reminder" in the list to re-enable '
+                              'optimization.',
+                            ),
+                          ));
+                        }
                         ref.invalidate(permissionOverviewProvider);
                       },
                     ),
@@ -216,39 +251,29 @@ class _SettingsCard extends StatelessWidget {
       );
 }
 
-class _PermissionRow extends StatelessWidget {
-  const _PermissionRow({
+class _FeatureToggle extends StatelessWidget {
+  const _FeatureToggle({
     required this.icon,
     required this.title,
-    required this.granted,
-    required this.grantedText,
-    required this.deniedText,
-    required this.onRequest,
+    required this.value,
+    required this.subtitle,
+    required this.onChanged,
   });
 
   final IconData icon;
   final String title;
-  final bool granted;
-  final String grantedText;
-  final String deniedText;
-  final Future<void> Function() onRequest;
+  final bool value;
+  final String subtitle;
+  final Future<void> Function(bool enabled) onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return ListTile(
-      leading: Icon(icon),
+    return SwitchListTile(
+      secondary: Icon(icon),
       title: Text(title),
-      subtitle: Text(
-        granted ? grantedText : deniedText,
-        style: const TextStyle(fontSize: 12),
-      ),
-      trailing: granted
-          ? Icon(Icons.check_circle, color: scheme.primary)
-          : FilledButton.tonal(
-              onPressed: onRequest,
-              child: const Text('Allow'),
-            ),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+      value: value,
+      onChanged: (enabled) => onChanged(enabled),
     );
   }
 }

@@ -23,22 +23,37 @@ class AppSettings {
     required this.themeMode,
     required this.firstDayOfWeek,
     required this.persistentNotificationEnabled,
+    required this.remindersEnabled,
+    required this.exactAlarmsEnabled,
+    required this.fullScreenEnabled,
   });
 
   final ThemeMode themeMode;
   final FirstDayOfWeek firstDayOfWeek;
   final bool persistentNotificationEnabled;
 
+  /// Feature flags behind the permission toggles (see SettingsKeys): the OS
+  /// permission stays granted; these only control whether the app USES it.
+  final bool remindersEnabled;
+  final bool exactAlarmsEnabled;
+  final bool fullScreenEnabled;
+
   AppSettings copyWith({
     ThemeMode? themeMode,
     FirstDayOfWeek? firstDayOfWeek,
     bool? persistentNotificationEnabled,
+    bool? remindersEnabled,
+    bool? exactAlarmsEnabled,
+    bool? fullScreenEnabled,
   }) =>
       AppSettings(
         themeMode: themeMode ?? this.themeMode,
         firstDayOfWeek: firstDayOfWeek ?? this.firstDayOfWeek,
         persistentNotificationEnabled:
             persistentNotificationEnabled ?? this.persistentNotificationEnabled,
+        remindersEnabled: remindersEnabled ?? this.remindersEnabled,
+        exactAlarmsEnabled: exactAlarmsEnabled ?? this.exactAlarmsEnabled,
+        fullScreenEnabled: fullScreenEnabled ?? this.fullScreenEnabled,
       );
 }
 
@@ -59,6 +74,10 @@ class SettingsNotifier extends Notifier<AppSettings> {
       ),
       persistentNotificationEnabled:
           prefs.getBool(SettingsKeys.persistentNotification) ?? false,
+      remindersEnabled: prefs.getBool(SettingsKeys.remindersEnabled) ?? true,
+      exactAlarmsEnabled:
+          prefs.getBool(SettingsKeys.exactAlarmsEnabled) ?? true,
+      fullScreenEnabled: prefs.getBool(SettingsKeys.fullScreenEnabled) ?? true,
     );
   }
 
@@ -90,6 +109,60 @@ class SettingsNotifier extends Notifier<AppSettings> {
     await ref
         .read(persistentNotificationControllerProvider)
         .setEnabled(enabled);
+  }
+
+  /// Reminders on/off. On: makes sure POST_NOTIFICATIONS is granted (the
+  /// system prompt only ever appears if it isn't yet) and re-schedules every
+  /// pending reminder from the database. Off: cancels the scheduled alarms —
+  /// the todos keep their reminder settings, so re-enabling restores them.
+  Future<void> setRemindersEnabled(bool enabled) async {
+    state = state.copyWith(remindersEnabled: enabled);
+    await ref
+        .read(sharedPreferencesProvider)
+        .setBool(SettingsKeys.remindersEnabled, enabled);
+    final notifications = ref.read(notificationServiceProvider);
+    if (enabled) {
+      await notifications.requestNotificationsPermission();
+      await notifications
+          .rescheduleAllPending(ref.read(todoRepositoryProvider));
+    } else {
+      await notifications.cancelAllReminders();
+    }
+  }
+
+  /// Exact alarms on/off. The permission (if held) is untouched; scheduling
+  /// just switches between exact and inexact modes.
+  Future<void> setExactAlarmsEnabled(bool enabled) async {
+    state = state.copyWith(exactAlarmsEnabled: enabled);
+    await ref
+        .read(sharedPreferencesProvider)
+        .setBool(SettingsKeys.exactAlarmsEnabled, enabled);
+    final notifications = ref.read(notificationServiceProvider);
+    if (enabled && !await notifications.canScheduleExactAlarms()) {
+      await notifications.requestExactAlarmsPermission();
+    }
+    // Re-register pending alarms so the new mode takes effect immediately.
+    if (state.remindersEnabled) {
+      await notifications
+          .rescheduleAllPending(ref.read(todoRepositoryProvider));
+    }
+  }
+
+  /// Full-screen reminder wake-up on/off.
+  Future<void> setFullScreenEnabled(bool enabled) async {
+    state = state.copyWith(fullScreenEnabled: enabled);
+    await ref
+        .read(sharedPreferencesProvider)
+        .setBool(SettingsKeys.fullScreenEnabled, enabled);
+    final notifications = ref.read(notificationServiceProvider);
+    if (enabled) {
+      // No-op below Android 14; opens the system toggle if revoked on 14+.
+      await notifications.requestFullScreenIntentPermission();
+    }
+    if (state.remindersEnabled) {
+      await notifications
+          .rescheduleAllPending(ref.read(todoRepositoryProvider));
+    }
   }
 
   static T _enumFromName<T extends Enum>(List<T> values, String? name, T fallback) {

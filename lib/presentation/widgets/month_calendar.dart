@@ -125,16 +125,25 @@ class _MonthCalendarState extends ConsumerState<MonthCalendar> {
     final daysWithTodos = ref.watch(daysWithTodosProvider).value ?? const <int>{};
     final scheme = Theme.of(context).colorScheme;
 
-    // External month changes (the "Today" button) animate the page from
-    // here; swipes handled below never re-enter (same month check).
+    // External month changes (the "Today" button, the month-jump dialog)
+    // move the page from here; swipes handled below never re-enter (same
+    // month check). Nearby months slide over; far jumps land instantly
+    // instead of strobing through dozens of pages.
     ref.listen(focusedMonthProvider, (_, next) {
       if (next.year != _focusedDay.year || next.month != _focusedDay.month) {
         _focusedDay = next;
-        _pageController?.animateToPage(
-          _pageIndexOf(next),
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-        );
+        final controller = _pageController;
+        if (controller == null || !controller.hasClients) return;
+        final target = _pageIndexOf(next);
+        if ((target - (controller.page ?? 0).round()).abs() > 3) {
+          controller.jumpToPage(target);
+        } else {
+          controller.animateToPage(
+            target,
+            duration: _settleDuration,
+            curve: _settleCurve,
+          );
+        }
       }
     });
 

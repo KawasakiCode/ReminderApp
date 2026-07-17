@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -28,6 +29,10 @@ enum ReminderScheduleResult {
   /// (and some other OEMs) silently drop alarms past ~500 per app, so we stop
   /// before that cliff. See NotificationIds.maxScheduledAlarms.
   alarmCapReached,
+
+  /// The global "Reminders" toggle in Settings is off — the todo keeps its
+  /// reminder configuration, but no alarm was registered.
+  remindersDisabled,
 }
 
 /// Payload carried inside a reminder notification, so a tap (or the
@@ -184,6 +189,20 @@ class NotificationService {
       return ReminderScheduleResult.notScheduled;
     }
 
+    // The Settings feature toggles. Read from prefs (not a provider) because
+    // scheduling also happens in background isolates. Turning a feature off
+    // never revokes the OS permission — the app just stops using it.
+    final prefs = await SharedPreferences.getInstance();
+    final remindersEnabled =
+        prefs.getBool(SettingsKeys.remindersEnabled) ?? true;
+    if (!remindersEnabled) {
+      await cancelReminder(notificationId);
+      return ReminderScheduleResult.remindersDisabled;
+    }
+    final exactWanted = prefs.getBool(SettingsKeys.exactAlarmsEnabled) ?? true;
+    final fullScreenWanted =
+        prefs.getBool(SettingsKeys.fullScreenEnabled) ?? true;
+
     await _ensureTimezone();
 
     // Guard the OEM alarm cap (see NotificationIds.maxScheduledAlarms).
@@ -193,7 +212,7 @@ class NotificationService {
       return ReminderScheduleResult.alarmCapReached;
     }
 
-    final exact = await canScheduleExactAlarms();
+    final exact = exactWanted && await canScheduleExactAlarms();
 
     await _plugin.zonedSchedule(
       id: notificationId,
@@ -215,8 +234,9 @@ class NotificationService {
           visibility: NotificationVisibility.public,
           // Samsung-Calendar-style behavior: wake the screen and show over
           // the lock screen. Requires USE_FULL_SCREEN_INTENT (manifest) and,
-          // on Android 14+, the un-revoked full-screen-intent appop.
-          fullScreenIntent: true,
+          // on Android 14+, the un-revoked full-screen-intent appop. The
+          // user can also opt out in Settings without touching permissions.
+          fullScreenIntent: fullScreenWanted,
           actions: const [
             AndroidNotificationAction(
               NotificationIds.actionMarkDone,
@@ -244,6 +264,12 @@ class NotificationService {
     if (notificationId == null) return;
     await _plugin.cancel(id: notificationId);
   }
+
+  /// Used by the Settings "Reminders" toggle when switching off. Reminder
+  /// notifications are the only ones this plugin instance schedules, so a
+  /// blanket cancel is safe (the persistent notification is owned natively
+  /// by the foreground service and unaffected).
+  Future<void> cancelAllReminders() => _plugin.cancelAll();
 
   /// Re-registers every future reminder. flutter_local_notifications already
   /// restores its alarms after reboot via its own BOOT_COMPLETED receiver,
