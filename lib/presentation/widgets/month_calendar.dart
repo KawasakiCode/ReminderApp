@@ -11,10 +11,15 @@ import '../theme.dart';
 /// accent color, selected day outlined, indicator dot under days with todos.
 ///
 /// Month swiping is handled by our own [GestureDetector] instead of the
-/// internal PageView: PageScrollPhysics needs a half-screen drag (or a hard
-/// fling) to commit a page, which feels unresponsive on a calendar. Here a
-/// ~24 px drag or a light fling flips the month via the PageController that
-/// [TableCalendar.onCalendarCreated] hands us.
+/// internal PageView's physics, for two reasons:
+///  * PageScrollPhysics needs a half-screen drag (or a hard fling) to commit
+///    a page — unresponsive on a calendar. We commit at 15% / a light fling.
+///  * We still want the page to *follow the finger* (drag halfway → half of
+///    the next month visible), so drag updates are fed straight into the
+///    PageController's scroll position ([TableCalendar.onCalendarCreated]
+///    hands us the controller; its own input is disabled via
+///    [AvailableGestures.none], which still allows programmatic scrolling).
+///    On release the page settles with a short ease-out animation.
 class MonthCalendar extends ConsumerStatefulWidget {
   const MonthCalendar({super.key});
 
@@ -24,7 +29,10 @@ class MonthCalendar extends ConsumerStatefulWidget {
 
 class _MonthCalendarState extends ConsumerState<MonthCalendar> {
   PageController? _pageController;
-  double _dragDx = 0;
+
+  /// The page the current drag started on — the reference point for the
+  /// commit decision in [_onDragEnd].
+  int _dragStartPage = 0;
 
   /// The month the grid is on. Kept as plain state (NOT a `ref.watch` on
   /// [focusedMonthProvider]): watching would rebuild this widget — and hand
@@ -34,13 +42,21 @@ class _MonthCalendarState extends ConsumerState<MonthCalendar> {
   /// (the "Today" button).
   late DateTime _focusedDay;
 
-  static const double _distanceThreshold = 24; // logical px
-  static const double _velocityThreshold = 200; // logical px/s
+  /// Commit the month change once 15% of the page width has been dragged…
+  static const double _commitFraction = 0.15;
+
+  /// …or on a light fling, whichever comes first.
+  static const double _velocityThreshold = 250; // logical px/s
+
+  static const _settleDuration = Duration(milliseconds: 220);
+  static const _settleCurve = Curves.easeOutCubic;
 
   /// TableCalendar's monthly PageView indexes pages as months since
-  /// `firstDay` (Jan 2000 here).
+  /// `firstDay` (Jan 2000 here); last page is Dec 2100.
   static int _pageIndexOf(DateTime month) =>
       (month.year - 2000) * 12 + (month.month - 1);
+
+  static final int _maxPageIndex = _pageIndexOf(DateTime(2100, 12));
 
   @override
   void initState() {
@@ -48,21 +64,58 @@ class _MonthCalendarState extends ConsumerState<MonthCalendar> {
     _focusedDay = ref.read(focusedMonthProvider);
   }
 
+  void _onDragStart(DragStartDetails details) {
+    final controller = _pageController;
+    if (controller == null || !controller.hasClients) return;
+    _dragStartPage = (controller.page ?? 0).round();
+  }
+
+  /// Follow the finger: move the PageView's scroll position 1:1 with the
+  /// drag, so half a swipe shows half of the adjacent month.
+  void _onDragUpdate(DragUpdateDetails details) {
+    final controller = _pageController;
+    if (controller == null || !controller.hasClients) return;
+    final position = controller.position;
+    position.jumpTo(
+      (position.pixels - details.delta.dx)
+          .clamp(position.minScrollExtent, position.maxScrollExtent),
+    );
+  }
+
   void _onDragEnd(DragEndDetails details) {
+    final controller = _pageController;
+    if (controller == null || !controller.hasClients) return;
     final velocity = details.primaryVelocity ?? 0;
-    if (_dragDx <= -_distanceThreshold || velocity <= -_velocityThreshold) {
-      _pageController?.nextPage(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-      );
-    } else if (_dragDx >= _distanceThreshold ||
-        velocity >= _velocityThreshold) {
-      _pageController?.previousPage(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-      );
+    final moved = (controller.page ?? _dragStartPage.toDouble()) - _dragStartPage;
+
+    int target = _dragStartPage;
+    if (velocity <= -_velocityThreshold) {
+      target = _dragStartPage + 1; // fling left → next month
+    } else if (velocity >= _velocityThreshold) {
+      target = _dragStartPage - 1; // fling right → previous month
+    } else if (moved >= _commitFraction) {
+      target = _dragStartPage + 1;
+    } else if (moved <= -_commitFraction) {
+      target = _dragStartPage - 1;
     }
-    _dragDx = 0;
+
+    controller.animateToPage(
+      target.clamp(0, _maxPageIndex),
+      duration: _settleDuration,
+      curve: _settleCurve,
+    );
+  }
+
+  /// Drag interrupted (e.g. a vertical scroll won the gesture arena):
+  /// glide back to where the drag started.
+  void _onDragCancel() {
+    final controller = _pageController;
+    if (controller == null || !controller.hasClients) return;
+    controller.animateToPage(
+      _dragStartPage,
+      duration: _settleDuration,
+      curve: _settleCurve,
+    );
   }
 
   @override
@@ -87,9 +140,10 @@ class _MonthCalendarState extends ConsumerState<MonthCalendar> {
 
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onHorizontalDragStart: (_) => _dragDx = 0,
-      onHorizontalDragUpdate: (details) => _dragDx += details.delta.dx,
+      onHorizontalDragStart: _onDragStart,
+      onHorizontalDragUpdate: _onDragUpdate,
       onHorizontalDragEnd: _onDragEnd,
+      onHorizontalDragCancel: _onDragCancel,
       child: TableCalendar<int>(
         firstDay: DateTime(2000, 1, 1),
         lastDay: DateTime(2100, 12, 31),
