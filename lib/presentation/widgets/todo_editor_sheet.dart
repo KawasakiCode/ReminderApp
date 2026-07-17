@@ -168,14 +168,13 @@ class _TodoEditorSheetState extends ConsumerState<_TodoEditorSheet> {
             secondary: const Icon(Icons.notifications_active_outlined),
             title: const Text('Reminder'),
             subtitle: Text(
-              _reminderPossible
+              _reminder && _reminderPossible
                   ? 'Alarm-style notification at ${_time!.format(context)}'
-                  : 'Set a time to enable the reminder',
+                  : 'Rings at the todo\'s time — asks for one if not set',
               style: const TextStyle(fontSize: 12),
             ),
             value: _reminder && _reminderPossible,
-            onChanged:
-                _reminderPossible ? (value) => _onReminderToggled(value) : null,
+            onChanged: _onReminderToggled,
           ),
           const SizedBox(height: 6),
           Row(
@@ -241,9 +240,26 @@ class _TodoEditorSheetState extends ConsumerState<_TodoEditorSheet> {
 
   /// Turning the reminder on walks the permission chain right away so the
   /// user learns about problems now, not when the alarm silently fails.
+  /// A reminder needs a concrete time — if there is none yet (new todos
+  /// default to all-day), the time picker opens on the spot instead of the
+  /// switch being disabled.
   Future<void> _onReminderToggled(bool value) async {
-    setState(() => _reminder = value);
-    if (!value) return;
+    if (!value) {
+      setState(() => _reminder = false);
+      return;
+    }
+    if (_allDay || _time == null) {
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: _time ?? TimeOfDay.now(),
+      );
+      if (picked == null) return; // backed out — leave the switch off
+      setState(() {
+        _allDay = false;
+        _time = picked;
+      });
+    }
+    setState(() => _reminder = true);
 
     final permissions = ref.read(permissionServiceProvider);
     final notificationsOk = await permissions.requestNotifications();
@@ -292,7 +308,17 @@ class _TodoEditorSheetState extends ConsumerState<_TodoEditorSheet> {
       colorTag: _colorTag,
     );
 
-    final result = await ref.read(todoActionsProvider).save(draft);
+    final ReminderScheduleResult result;
+    try {
+      result = await ref.read(todoActionsProvider).save(draft);
+    } catch (error) {
+      // Never fail silently — surface the error and let the user retry.
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Could not save: $error')));
+      return;
+    }
 
     // Make the calendar jump to the day the todo landed on.
     ref.read(selectedDayProvider.notifier).select(_date);

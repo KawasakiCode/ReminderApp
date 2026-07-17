@@ -5,6 +5,8 @@
 /// widget and the persistent notification stay consistent.
 library;
 
+import 'dart:ui' as ui;
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:workmanager/workmanager.dart';
@@ -26,7 +28,7 @@ import '../services/snapshot_service.dart';
 @pragma('vm:entry-point')
 Future<void> homeWidgetBackgroundCallback(Uri? uri) async {
   if (uri == null || uri.scheme != BackgroundUris.scheme) return;
-  WidgetsFlutterBinding.ensureInitialized();
+  _ensureBackgroundIsolateReady();
 
   final repository = DriftTodoRepository(AppDatabase.open());
 
@@ -61,10 +63,19 @@ Future<void> _toggleDone(TodoRepository repository, int id) async {
   }
 }
 
+/// Plugin channels (shared_preferences via home_widget, path_provider via
+/// drift_flutter, notifications) must be registered before use in a
+/// background isolate. Idempotent and cheap.
+void _ensureBackgroundIsolateReady() {
+  WidgetsFlutterBinding.ensureInitialized();
+  ui.DartPluginRegistrant.ensureInitialized();
+}
+
 /// Workmanager dispatcher — currently a single task: the midnight rollover.
 @pragma('vm:entry-point')
 void workmanagerDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
+    _ensureBackgroundIsolateReady();
     switch (taskName) {
       case MidnightTask.taskName:
         final repository = DriftTodoRepository(AppDatabase.open());
@@ -82,6 +93,7 @@ Future<void> notificationActionBackground(NotificationResponse response) async {
   if (response.actionId != NotificationIds.actionMarkDone) return;
   final payload = ReminderPayload.decode(response.payload);
   if (payload == null) return;
+  _ensureBackgroundIsolateReady();
 
   final repository = DriftTodoRepository(AppDatabase.open());
   await repository.setDone(payload.todoId, true);

@@ -140,6 +140,14 @@
                 android:resource="@xml/todo_widget_info" />
         </receiver>
 
+        <!-- Force Impeller onto OpenGL ES instead of Vulkan. Budget Mali
+             GPUs (e.g. Galaxy A32's Mali-G52) have notoriously buggy Vulkan
+             drivers: shader artifacts and janky first-swipe frames. GLES is
+             the stable path on this hardware class. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.ImpellerBackend"
+            android:value="opengles" />
+
         <!-- Flutter tooling marker — do not remove. -->
         <meta-data
             android:name="flutterEmbedding"

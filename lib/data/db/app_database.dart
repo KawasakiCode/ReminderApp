@@ -47,21 +47,39 @@ class AppDatabase extends _$AppDatabase {
 
   static AppDatabase? _instance;
 
-  /// Opens (or returns) the process-wide database.
+  /// Opens (or returns) this isolate's database connection.
   ///
-  /// `shareAcrossIsolates: true` is load-bearing: the home_widget
-  /// interactivity callback, the Workmanager midnight task and the
-  /// flutter_local_notifications background action handler all run in their
-  /// own background isolates. With this flag every isolate connects to one
-  /// shared drift server instead of opening the SQLite file concurrently, so
-  /// there are no lock conflicts and stream queries in the UI isolate update
-  /// when a background isolate writes.
+  /// Each isolate (UI, home_widget callback, Workmanager midnight task,
+  /// notification-action handler) opens its **own** connection to the same
+  /// SQLite file. WAL mode plus a generous busy timeout makes that safe:
+  /// SQLite serializes the writers, and background writers hold the lock
+  /// only for single-row updates.
+  ///
+  /// Deliberately NOT drift_flutter's `shareAcrossIsolates`: that routes all
+  /// isolates through one server isolate advertised via IsolateNameServer,
+  /// and a background engine being torn down (e.g. after the BootReceiver's
+  /// refresh on app update) leaves a dead port registered in the cached
+  /// process — every later connection then hangs forever with no error.
+  /// Per-isolate connections cannot hang that way. The one trade-off is that
+  /// UI stream queries don't observe writes made by *other* isolates, which
+  /// is handled by [TodoRepository.invalidateStreams] on app resume.
   factory AppDatabase.open() => _instance ??= AppDatabase._(
         driftDatabase(
           name: 'reminder_app',
-          native: const DriftNativeOptions(shareAcrossIsolates: true),
+          native: DriftNativeOptions(
+            setup: (db) {
+              db.execute('PRAGMA journal_mode = WAL;');
+              db.execute('PRAGMA busy_timeout = 5000;');
+            },
+          ),
         ),
       );
+
+  /// Re-runs every active stream query. Called when the app returns to the
+  /// foreground, because a background isolate (widget/notification check-off)
+  /// may have written rows this isolate's drift connection knows nothing
+  /// about.
+  void invalidateStreams() => markTablesUpdated([todos]);
 
   @override
   int get schemaVersion => 1;

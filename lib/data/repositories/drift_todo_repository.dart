@@ -60,6 +60,9 @@ class DriftTodoRepository implements TodoRepository {
   Future<List<TodoEntity>> getPendingRemindersAfter(DateTime instant) async =>
       (await _db.getPendingRemindersAfter(instant)).map(_toEntity).toList();
 
+  @override
+  void invalidateStreams() => _db.invalidateStreams();
+
   /// Sort: all-day first, then by start time, ties broken by id so the order
   /// is stable.
   List<TodoEntity> _sortedEntities(List<TodoRow> rows) {

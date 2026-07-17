@@ -46,6 +46,10 @@ abstract final class NativeChannel {
   static const name = 'com.example.reminder_app/service';
   static const startPersistentNotification = 'startPersistentNotification';
   static const stopPersistentNotification = 'stopPersistentNotification';
+
+  /// True on Android < 14 (granted via the manifest permission alone) or when
+  /// the Android 14+ appop has not been revoked.
+  static const canUseFullScreenIntent = 'canUseFullScreenIntent';
 }
 
 /// Notification identity.

@@ -27,10 +27,11 @@ abstract final class AppTheme {
   }
 
   static ThemeData _base(ColorScheme scheme) {
+    // Note: no InkSparkle splashFactory — its fragment shader renders as
+    // pixelated artifacts on some Mali/PowerVR GPUs (seen on Galaxy A32).
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      splashFactory: InkSparkle.splashFactory,
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,

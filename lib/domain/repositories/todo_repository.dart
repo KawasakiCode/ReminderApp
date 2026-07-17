@@ -29,4 +29,10 @@ abstract interface class TodoRepository {
   /// Todos with an enabled, not-yet-fired reminder after [instant] that are
   /// not done — the set that must be (re)scheduled with AlarmManager.
   Future<List<TodoEntity>> getPendingRemindersAfter(DateTime instant);
+
+  /// Forces every watched query to re-emit. Called when the app returns to
+  /// the foreground, since background isolates write through their own
+  /// database connection and those writes are otherwise invisible to
+  /// this isolate's streams.
+  void invalidateStreams();
 }

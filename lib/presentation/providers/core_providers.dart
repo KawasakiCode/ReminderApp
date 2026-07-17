@@ -24,7 +24,10 @@ final notificationServiceProvider =
     Provider<NotificationService>((ref) => NotificationService.instance);
 
 final permissionServiceProvider = Provider<PermissionService>(
-  (ref) => PermissionService(ref.watch(notificationServiceProvider)),
+  (ref) => PermissionService(
+    ref.watch(notificationServiceProvider),
+    ref.watch(persistentNotificationControllerProvider),
+  ),
 );
 
 final persistentNotificationControllerProvider =

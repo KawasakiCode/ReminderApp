@@ -22,11 +22,29 @@ class CalendarScreen extends ConsumerStatefulWidget {
   ConsumerState<CalendarScreen> createState() => _CalendarScreenState();
 }
 
-class _CalendarScreenState extends ConsumerState<CalendarScreen> {
+class _CalendarScreenState extends ConsumerState<CalendarScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _onFirstFrame());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Background isolates (widget/notification check-offs) write through
+    // their own DB connection, invisible to this isolate's streams — re-run
+    // them whenever the user comes back to the app.
+    if (state == AppLifecycleState.resumed) {
+      ref.read(todoRepositoryProvider).invalidateStreams();
+    }
   }
 
   Future<void> _onFirstFrame() async {
@@ -43,8 +61,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       );
     };
 
-    // Alarms/snapshot/midnight-task/service re-sync — idempotent.
-    await ref.read(todoActionsProvider).appStartSync();
+    // Alarms/snapshot/midnight-task/service re-sync — idempotent. A failure
+    // here must not block the rest of startup (launch payload, permissions).
+    try {
+      await ref.read(todoActionsProvider).appStartSync();
+    } catch (error) {
+      debugPrint('appStartSync failed: $error');
+    }
 
     // If the process was cold-started by a reminder (incl. the full-screen
     // intent firing on the lock screen), open that reminder now.

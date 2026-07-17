@@ -41,6 +41,7 @@ class SettingsScreen extends ConsumerWidget {
                 title: const Text('First day of week'),
                 trailing: DropdownButton<FirstDayOfWeek>(
                   value: settings.firstDayOfWeek,
+                  borderRadius: BorderRadius.circular(18),
                   underline: const SizedBox.shrink(),
                   items: [
                     for (final day in FirstDayOfWeek.values)
@@ -125,13 +126,12 @@ class SettingsScreen extends ConsumerWidget {
                     _PermissionRow(
                       icon: Icons.fullscreen_outlined,
                       title: 'Full-screen reminders',
-                      // Not queryable via a public API pre-34; offer the
-                      // deep link and describe what it does.
-                      granted: null,
-                      grantedText: '',
+                      granted: overview.fullScreenGranted,
+                      grantedText:
+                          'Reminders can wake the screen like an alarm',
                       deniedText:
-                          'Lets reminders wake the screen like an alarm '
-                          '(Android 14+ setting)',
+                          'Revoked in system settings — reminders fall back '
+                          'to a normal heads-up notification',
                       onRequest: () async {
                         await ref
                             .read(permissionServiceProvider)
@@ -228,9 +228,7 @@ class _PermissionRow extends StatelessWidget {
 
   final IconData icon;
   final String title;
-
-  /// null = state not queryable; always show the action button.
-  final bool? granted;
+  final bool granted;
   final String grantedText;
   final String deniedText;
   final Future<void> Function() onRequest;
@@ -238,15 +236,14 @@ class _PermissionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isGranted = granted ?? false;
     return ListTile(
       leading: Icon(icon),
       title: Text(title),
       subtitle: Text(
-        isGranted ? grantedText : deniedText,
+        granted ? grantedText : deniedText,
         style: const TextStyle(fontSize: 12),
       ),
-      trailing: granted == true
+      trailing: granted
           ? Icon(Icons.check_circle, color: scheme.primary)
           : FilledButton.tonal(
               onPressed: onRequest,

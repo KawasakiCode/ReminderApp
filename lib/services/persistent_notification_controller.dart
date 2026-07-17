@@ -23,4 +23,17 @@ class PersistentNotificationController {
       // No MainActivity in this engine (e.g. tests) — nothing to control.
     }
   }
+
+  /// Whether reminder notifications may launch their full-screen intent.
+  /// Android < 14: always true (the manifest permission suffices). 14+: the
+  /// user-revocable appop, read natively via NotificationManager.
+  Future<bool> canUseFullScreenIntent() async {
+    try {
+      return await _channel
+              .invokeMethod<bool>(NativeChannel.canUseFullScreenIntent) ??
+          true;
+    } on MissingPluginException {
+      return true;
+    }
+  }
 }

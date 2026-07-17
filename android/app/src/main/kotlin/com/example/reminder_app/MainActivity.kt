@@ -1,5 +1,7 @@
 package com.example.reminder_app
 
+import android.app.NotificationManager
+import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -34,6 +36,18 @@ class MainActivity : FlutterActivity() {
                     "stopPersistentNotification" -> {
                         TodoForegroundService.stop(this)
                         result.success(null)
+                    }
+                    // Below Android 14 the appop doesn't exist: holding
+                    // USE_FULL_SCREEN_INTENT in the manifest is sufficient.
+                    "canUseFullScreenIntent" -> {
+                        result.success(
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                                getSystemService(NotificationManager::class.java)
+                                    .canUseFullScreenIntent()
+                            } else {
+                                true
+                            }
+                        )
                     }
                     else -> result.notImplemented()
                 }
