@@ -248,10 +248,17 @@ class NotificationService {
         ),
       ),
       payload: ReminderPayload(todoId: todoId, dayKey: todo.dayKey).encode(),
-      // Exact when allowed; graceful degradation to inexact otherwise (the
+      // alarmClock (AlarmManager.setAlarmClock), NOT exactAllowWhileIdle.
+      // Verified on a Galaxy A32 (One UI 5): exactAllowWhileIdle alarms are
+      // *delivered* by AlarmManager, but Samsung silently drops the receiver
+      // broadcast when the app was swiped away / its process is frozen — the
+      // notification never appears. alarmClock is the privileged tier used
+      // by real alarm clocks: One UI never suppresses its delivery (and the
+      // status bar shows an alarm icon, which is appropriate here). Falls
+      // back to inexact when exact alarms are unavailable/disabled (the
       // caller surfaces a notice so the user can grant the permission).
       androidScheduleMode: exact
-          ? AndroidScheduleMode.exactAllowWhileIdle
+          ? AndroidScheduleMode.alarmClock
           : AndroidScheduleMode.inexactAllowWhileIdle,
     );
 

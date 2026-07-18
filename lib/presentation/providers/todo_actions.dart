@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:home_widget/home_widget.dart';
 
+import '../../core/app_constants.dart';
 import '../../domain/entities/todo_entity.dart';
 import '../../domain/repositories/todo_repository.dart';
 import '../../services/midnight_refresh.dart';
@@ -84,12 +86,17 @@ class TodoActions {
     await SnapshotService.refresh(_repository);
     await MidnightRefresh.ensureScheduled();
 
+    // Reconcile the persistent-notification state in BOTH directions: the
+    // native mirror flag (read by BootReceiver) and the service itself must
+    // match the app setting, even if a past crash or kill left them apart.
     final settings = _ref.read(settingsProvider);
-    if (settings.persistentNotificationEnabled) {
-      await _ref
-          .read(persistentNotificationControllerProvider)
-          .setEnabled(true);
-    }
+    await HomeWidget.saveWidgetData<bool>(
+      WidgetPrefsKeys.persistentNotificationEnabled,
+      settings.persistentNotificationEnabled,
+    );
+    await _ref
+        .read(persistentNotificationControllerProvider)
+        .setEnabled(settings.persistentNotificationEnabled);
   }
 }
 
